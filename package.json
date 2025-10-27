@@ -1,0 +1,38 @@
+{
+  "name": "playwrightframework",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "prebuild": "rimraf dist",
+    "test": "npx cucumber-js --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:smoke": "npx cucumber-js --tags @smoke --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:regression": "npx cucumber-js --tags @regression --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:feature": "npx cucumber-js src/features/$npm_config_name.feature --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:chrome": "BROWSER=chromium npx cucumber-js --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:firefox": "BROWSER=firefox npx cucumber-js --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:webkit": "BROWSER=webkit npx cucumber-js --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:ui": "$env:HEADLESS='false'; npx cucumber-js --require-module ts-node/register --require src/run-cucumber.ts --format @cucumber/pretty-formatter",
+    "test:once": "npx cucumber-js --require-module ts-node/register --require src/support/**/*.ts --require src/step_definitions/**/*.ts --format @cucumber/pretty-formatter"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@cucumber/cucumber": "^11.3.0",
+    "@cucumber/pretty-formatter": "^1.0.1",
+    "@playwright/test": "^1.53.1",
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^24.0.3",
+    "cucumber-html-reporter": "^7.2.0",
+    "dotenv": "^16.6.1",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "minimist": "^1.2.8"
+  }
+}

@@ -1,0 +1,4 @@
+This is a placeholder for the actual baseline.xlsx file.
+Please replace this with your actual Excel file containing the baseline data.
+
+For testing purposes, create an Excel file named 'baseline.xlsx' with the appropriate data structure for your Op Model application and place it in this directory.

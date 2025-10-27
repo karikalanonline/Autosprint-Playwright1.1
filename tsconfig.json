@@ -1,0 +1,56 @@
+// {
+//   "compilerOptions": {
+//     "target": "es2016",
+//     "module": "commonjs",
+//     "moduleResolution": "node",
+//     "resolveJsonModule": true,
+//     "esModuleInterop": true,
+//     "forceConsistentCasingInFileNames": true,
+//     "strict": true,
+//     "skipLibCheck": true,
+//     "baseUrl": ".",
+//     "outDir": "dist",
+//     "rootDir": "src",
+//     "sourceMap": true,
+//     "declaration": true,
+//     "paths": {
+//       "@pages/*": ["src/pages/*"],
+//       "@features/*": ["src/features/*"],
+//       "@step_definitions/*": ["src/step_definitions/*"],
+//       "@support/*": ["src/support/*"],
+//       "@test-data/*": ["src/test-data/*"],
+//       "@config/*": ["src/config/*"]
+//     }
+//   },
+//   "include": ["src/**/*"],
+//   "exclude": ["node_modules", "dist", "reports", "logs"]
+// }
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@pages/*": ["src/pages/*"],
+      "@features/*": ["src/features/*"],
+      "@step_definitions/*": ["src/step_definitions/*"],
+      "@support/*": ["src/support/*"],
+      "@test-data/*": ["src/test-data/*"],
+      "@config/*": ["src/config/*"]
+    },
+
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "types": ["node", "playwright"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.mts"],
+  "exclude": ["node_modules", "dist"]
+}
