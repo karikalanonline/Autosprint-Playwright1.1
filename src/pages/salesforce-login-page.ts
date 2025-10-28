@@ -4,14 +4,10 @@ import { BasePage } from "./basePage";
 import { Locator, Page } from "@playwright/test";
 
 export class SalesforceLoginPage extends BasePage {
-  private readonly username: Locator;
-  private readonly password: Locator;
-  private readonly loginBtn: Locator;
-  private readonly homeTab: Locator;
-
   private readonly usernameFieldSelector = "#username";
   private readonly passwordFieldSelector = "#password";
   private readonly loginButtonSelector = "#Login";
+  private readonly homeTab = "a[title='Home']";
 
   constructor(page: Page) {
     super(page);
@@ -25,6 +21,10 @@ export class SalesforceLoginPage extends BasePage {
       this.logError(`Failed to enter username: ${error}`);
       throw error;
     }
+  }
+
+  async isLoginPageReady(): Promise<boolean> {
+    return this.page.isVisible(this.usernameFieldSelector);
   }
 
   async enterPassword(password: string): Promise<void> {
@@ -47,10 +47,10 @@ export class SalesforceLoginPage extends BasePage {
     }
   }
 
-  async isDashboardVisible(): Promise<boolean> {
+  async isHomeTabVisible(): Promise<boolean> {
     try {
-      const isVisible = await this.page.isVisible(this.dashboardSelector);
-      this.logInfo("Dashboard visibility checked");
+      const isVisible = await this.page.isVisible(this.homeTab);
+      this.logInfo("HomeTab is successfully displayed");
       return isVisible;
     } catch (error) {
       this.logError(`Failed to check dashboard visibility: ${error}`);
@@ -58,14 +58,14 @@ export class SalesforceLoginPage extends BasePage {
     }
   }
 
-  async getDashboardText(): Promise<string> {
-    try {
-      const text = await this.page.textContent(this.dashboardSelector);
-      this.logInfo(`Dashboard text retrieved: ${text}`);
-      return text || "";
-    } catch (error) {
-      this.logError(`Failed to retrieve dashboard text: ${error}`);
-      throw error;
-    }
-  }
+  // async getDashboardText(): Promise<string> {
+  //   try {
+  //     const text = await this.page.textContent(this.dashboardSelector);
+  //     this.logInfo(`Dashboard text retrieved: ${text}`);
+  //     return text || "";
+  //   } catch (error) {
+  //     this.logError(`Failed to retrieve dashboard text: ${error}`);
+  //     throw error;
+  //   }
+  // }
 }

@@ -11,9 +11,7 @@ Given(
   async function (this: CustomWorld, url: string) {
     const loginPage = this.getPageObject(SalesforceLoginPage);
     await loginPage.navigateTo(config.baseUrl);
-    await expect(
-      this.page!.locator(loginPage.usernameFieldSelector)
-    ).toBeVisible();
+    expect(await loginPage.isLoginPageReady()).toBeTruthy();
   }
 );
 
@@ -44,17 +42,34 @@ When(
 Then(
   "I should be successfully logged into the Salesforce Sandbox environment",
   async function (this: CustomWorld) {
-    const loginPage = this.getPageObject(SalesforceLoginPage);
-    const isDashboardVisible = await loginPage.isDashboardVisible();
-    expect(isDashboardVisible).toBeTruthy();
+    // honor your pattern; simple stabilization wait if needed
+    await this.page!.waitForURL(/\/lightning\/.*/i, { timeout: 30000 });
   }
 );
 
 Then(
-  "I should see the Salesforce dashboard or homepage",
+  "I should be see the Home tab in salesforce home page",
   async function (this: CustomWorld) {
     const loginPage = this.getPageObject(SalesforceLoginPage);
-    const dashboardText = await loginPage.getDashboardText();
-    expect(dashboardText).toContain("Welcome");
+    const isHomeTabVisible = await loginPage.isHomeTabVisible();
+    expect(isHomeTabVisible).toBeTruthy();
   }
 );
+
+// Then(
+//   "I should be successfully logged into the Salesforce Sandbox environment",
+//   async function (this: CustomWorld) {
+//     const loginPage = this.getPageObject(SalesforceLoginPage);
+//     const isDashboardVisible = await loginPage.isDashboardVisible();
+//     expect(isDashboardVisible).toBeTruthy();
+//   }
+// );
+
+// Then(
+//   "I should see the Salesforce dashboard or homepage",
+//   async function (this: CustomWorld) {
+//     const loginPage = this.getPageObject(SalesforceLoginPage);
+//     const dashboardText = await loginPage.getDashboardText();
+//     expect(dashboardText).toContain("Welcome");
+//   }
+// );
