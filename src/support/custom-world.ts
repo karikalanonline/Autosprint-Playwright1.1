@@ -1,109 +1,96 @@
 import { setWorldConstructor, World, IWorldOptions } from "@cucumber/cucumber";
 import { Browser, BrowserContext, Page } from "@playwright/test";
 import { PlaywrightHelper } from "./playwright-helper";
-import config from "../config/config";
 
 export interface CucumberWorldConstructorParams extends IWorldOptions {
   parameters: { [key: string]: string };
 }
 
-// Global variables to maintain state across scenarios
-let globalBrowser: Browser | null = null;
-let globalContext: BrowserContext | null = null;
-let globalPage: Page | null = null;
-let globalPageObjects: Map<string, any> = new Map(); // Cache for all page objects
+/**
+ * Global singletons reused across scenarios (if you choose reuse).
+ * Start as undefined and get set during setup().
+ */
+let globalBrowser: Browser | undefined;
+let globalContext: BrowserContext | undefined;
+let globalPage: Page | undefined;
+const globalPageObjects = new Map<string, unknown>(); // POM cache
 
 export class CustomWorld extends World {
-  browser!: Browser | null;
-  context!: BrowserContext | null;
-  page!: Page | null;
+  // Non-nullable, definite assignment: hooks/setup() must assign these.
+  browser!: Browser;
+  context!: BrowserContext;
+  page!: Page;
 
   constructor(options: CucumberWorldConstructorParams) {
     super(options);
-    // Use global instances if they exist
-    this.browser = globalBrowser;
-    this.context = globalContext;
-    this.page = globalPage;
+    // If globals already exist, adopt them; otherwise setup() will assign fresh ones.
+    if (globalBrowser && globalContext && globalPage) {
+      this.browser = globalBrowser;
+      this.context = globalContext;
+      this.page = globalPage;
+    }
+    // If any are missing, we leave them unassigned here; setup() will set them.
   }
 
-  // Generic page factory - works for ANY page class
+  /**
+   * Generic Page Object factory with caching across scenarios.
+   * Creates once per class name and reuses.
+   */
   getPageObject<T>(PageClass: new (page: Page) => T): T {
-    const className = PageClass.name;
-
-    // Check if page object already exists in cache
-    if (globalPageObjects.has(className)) {
-      //console.log(`Reusing existing ${className} instance`);
-      return globalPageObjects.get(className);
+    const key = PageClass.name;
+    if (!globalPageObjects.has(key)) {
+      if (!this.page)
+        throw new Error("Page not initialized. Call setup() first.");
+      globalPageObjects.set(key, new PageClass(this.page));
     }
-
-    // Create new page object if it doesn't exist
-    if (!this.page) {
-      //console.error('Page is not initialized. Browser setup may have failed.');
-      throw new Error(
-        "Page is not initialized. Make sure the Before hook completed successfully."
-      );
-    }
-
-    //console.log(`Creating new ${className} instance`);
-    const pageObject = new PageClass(this.page);
-
-    // Cache for reuse across scenarios
-    globalPageObjects.set(className, pageObject);
-
-    return pageObject;
+    return globalPageObjects.get(key) as T;
   }
 
+  /**
+   * Setup browser/context/page. Reuse globals if present; otherwise create.
+   */
   async setup(
     browserName: string = process.env.BROWSER || "chromium"
   ): Promise<void> {
-    try {
-      //console.log(`Setting up browser: ${browserName}`);
+    if (!globalBrowser || !globalContext || !globalPage) {
+      // Create fresh
+      this.browser = await PlaywrightHelper.launchBrowser(browserName);
+      this.context = await PlaywrightHelper.createContext(this.browser);
+      this.page = await PlaywrightHelper.newPage(this.context);
 
-      // Only create new instances if they don't exist globally
-      if (!globalBrowser || !globalContext || !globalPage) {
-        //console.log('Creating new browser instance...');
-        this.browser = await PlaywrightHelper.launchBrowser(browserName);
-        this.context = await PlaywrightHelper.createContext(this.browser);
-        this.page = await PlaywrightHelper.newPage(this.context);
-
-        // Store globally for reuse
-        globalBrowser = this.browser;
-        globalContext = this.context;
-        globalPage = this.page;
-
-        //console.log('Created new browser context for scenario flow');
-      } else {
-        // Reuse existing instances
-        this.browser = globalBrowser;
-        this.context = globalContext;
-        this.page = globalPage;
-        //console.log('Reusing existing browser context for scenario flow');
-      }
-
-      //console.log(`Browser setup completed successfully. Page ready: ${!!this.page}`);
-    } catch (error: any) {
-      //console.error(`Failed to set up browser: ${error.message || error}`);
-      //console.error('Stack trace:', error.stack);
-      throw error;
+      // Publish to globals for reuse
+      globalBrowser = this.browser;
+      globalContext = this.context;
+      globalPage = this.page;
+    } else {
+      // Reuse
+      this.browser = globalBrowser;
+      this.context = globalContext;
+      this.page = globalPage;
     }
   }
 
+  /**
+   * Per-scenario teardown if you want a clean slate each time.
+   * (If you prefer reuse across scenarios, skip calling this in After.)
+   */
   async teardown(): Promise<void> {
-    // Clear global instances and close browser
-    globalBrowser = null;
-    globalContext = null;
-    globalPage = null;
-    globalPageObjects.clear(); // Clear all cached page objects
-    await PlaywrightHelper.closeBrowser();
+    await PlaywrightHelper.closeBrowser(); // closes browser/context/page safely
+    globalBrowser = undefined;
+    globalContext = undefined;
+    globalPage = undefined;
+    globalPageObjects.clear();
   }
 
-  // Static method to clean up all global state (called in AfterAll)
+  /**
+   * Suite-end cleanup (call from AfterAll).
+   */
   static async cleanupGlobalState(): Promise<void> {
-    globalBrowser = null;
-    globalContext = null;
-    globalPage = null;
-    globalPageObjects.clear();
     await PlaywrightHelper.closeBrowser();
+    globalBrowser = undefined;
+    globalContext = undefined;
+    globalPage = undefined;
+    globalPageObjects.clear();
   }
 }
 

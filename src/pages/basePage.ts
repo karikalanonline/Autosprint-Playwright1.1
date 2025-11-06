@@ -1,9 +1,10 @@
-import { Page } from '@playwright/test';
-import path from 'path';
-import fs from 'fs';
+import { Page, Locator } from "@playwright/test";
+import path from "path";
+import fs from "fs";
 
 export class BasePage {
   protected page: Page;
+  private readonly appLauncher: Locator;
 
   /**
    * BasePage Methods Index:
@@ -44,11 +45,63 @@ export class BasePage {
 
   constructor(page: Page) {
     this.page = page;
+    this.appLauncher = this.page.locator("button[title='App Launcher']");
   }
-    /**
-   * Navigate to a URL
-   * @param url - The URL to navigate to
-   */
+
+  protected async retryAction<T>(
+    fn: () => Promise<T>,
+    attempts = 3,
+    delayMs = 400
+  ): Promise<T> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastErr = err;
+        if (i < attempts - 1) {
+          await new Promise((res) => setTimeout(res, delayMs * Math.pow(2, i)));
+        }
+      }
+    }
+    throw lastErr;
+  }
+
+  private formatValue(value: string | number | Date): string {
+    if (value instanceof Date) {
+      const y = value.getFullYear();
+      const m = String(value.getMonth() + 1).padStart(2, "0");
+      const d = String(value.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return String(value);
+  }
+
+  private asLocator(target: string | Locator): Locator {
+    return typeof target === "string"
+      ? this.page.locator(target).first()
+      : target.first();
+  }
+
+  protected async fill(
+    target: string | Locator,
+    value: string | number | Date
+  ): Promise<void> {
+    const locator = this.asLocator(target);
+    const text = this.formatValue(value);
+    await this.retryAction(async () => locator.fill(text));
+  }
+
+  protected async type(
+    target: string | Locator,
+    value: string | number | Date,
+    delay = 200
+  ): Promise<void> {
+    const locator = this.asLocator(target);
+    const text = this.formatValue(value);
+    await this.retryAction(async () => locator.type(text, { delay }));
+  }
+
   async navigateTo(url: string): Promise<void> {
     try {
       await this.page.goto(url);
@@ -59,16 +112,14 @@ export class BasePage {
     }
   }
 
-  /**
-   * Wait for an element to be visible
-   * @param selector - The selector for the element
-   * @param timeout - Timeout in milliseconds (default: 30000)
-   */
-  async waitForElement(selector: string, timeout: number = 30000): Promise<void> {
+  async waitForElement(
+    selector: string,
+    timeout: number = 30000
+  ): Promise<void> {
     try {
-      await this.page.waitForSelector(selector, { 
-        state: 'visible', 
-        timeout 
+      await this.page.waitForSelector(selector, {
+        state: "visible",
+        timeout,
       });
       this.logInfo(`Element found: ${selector}`);
     } catch (error) {
@@ -76,77 +127,56 @@ export class BasePage {
       throw error;
     }
   }
-  /**
-   * Click on an element
-   * @param selector - The selector for the element
-   */
+
   async clickElement(selector: string): Promise<void> {
     await this.page.click(selector);
     this.logInfo(`Clicked on element with selector: ${selector}`);
   }
 
-  /**
-   * Fill a form field
-   * @param selector - The selector for the form field
-   * @param value - The value to fill in
-   */
   async fillField(selector: string, value: string): Promise<void> {
     await this.page.fill(selector, value);
     this.logInfo(`Filled field ${selector} with value: ${value}`);
   }
 
-  /**
-   * Get text from an element
-   * @param selector - The selector for the element
-   * @returns - The text content of the element
-   */
   async getTextFromElement(selector: string): Promise<string> {
-    const text = await this.page.textContent(selector) || '';
+    const text = (await this.page.textContent(selector)) || "";
     return text.trim();
   }
 
-  /**
-   * Check if element exists
-   * @param selector - The selector for the element
-   * @returns - True if the element exists, false otherwise
-   */
   async elementExists(selector: string): Promise<boolean> {
     const element = await this.page.$(selector);
     return element !== null;
   }
 
-  /**
-   * Take a screenshot
-   * @param name - The name for the screenshot file
-   */
   async takeScreenshot(name: string): Promise<void> {
-    const screenshotPath = path.join(process.cwd(), 'reports', 'screenshots', `${name.replace(/[^a-zA-Z0-9]/g, '_')}.png`);
+    const screenshotPath = path.join(
+      process.cwd(),
+      "reports",
+      "screenshots",
+      `${name.replace(/[^a-zA-Z0-9]/g, "_")}.png`
+    );
     await this.page.screenshot({ path: screenshotPath, fullPage: true });
     this.logInfo(`Screenshot saved to ${screenshotPath}`);
   }
 
-  /**
-   * Log information to the test log
-   * @param message - The message to log
-   */
   protected logInfo(message: string): void {
     const logMessage = `${new Date().toISOString()} - INFO: ${message}\n`;
-    fs.appendFileSync(path.join(process.cwd(), 'logs', 'test.log'), logMessage, 'utf8');
+    fs.appendFileSync(
+      path.join(process.cwd(), "logs", "test.log"),
+      logMessage,
+      "utf8"
+    );
   }
 
-  /**
-   * Log error to the test log
-   * @param message - The error message to log
-   */
   protected logError(message: string): void {
     const logMessage = `${new Date().toISOString()} - ERROR: ${message}\n`;
-    fs.appendFileSync(path.join(process.cwd(), 'logs', 'test.log'), logMessage, 'utf8');
+    fs.appendFileSync(
+      path.join(process.cwd(), "logs", "test.log"),
+      logMessage,
+      "utf8"
+    );
   }
 
-  /**
-   * Wait for a specific timeout
-   * @param milliseconds - The number of milliseconds to wait
-   */
   async waitForTimeout(milliseconds: number): Promise<void> {
     await this.page.waitForTimeout(milliseconds);
     this.logInfo(`Waited for ${milliseconds}ms`);
@@ -158,22 +188,28 @@ export class BasePage {
    * @param buttonSelector - The selector for the button inside iframe
    * @param buttonText - Text to identify the button (optional)
    */
-  async handleIframe(iframeSelector: string, buttonSelector: string, buttonText?: string): Promise<boolean> {
+  async handleIframe(
+    iframeSelector: string,
+    buttonSelector: string,
+    buttonText?: string
+  ): Promise<boolean> {
     try {
       this.logInfo(`Looking for iframe with selector: ${iframeSelector}`);
-      const frameElementHandle = await this.page.locator(iframeSelector).first();
+      const frameElementHandle = await this.page
+        .locator(iframeSelector)
+        .first();
       const frame = await frameElementHandle.contentFrame();
-      
+
       if (frame) {
-        this.logInfo('Iframe found, looking for button inside');
+        this.logInfo("Iframe found, looking for button inside");
         const button = frame.locator(buttonSelector);
-        await button.waitFor({ state: 'visible', timeout: 5000 });
+        await button.waitFor({ state: "visible", timeout: 5000 });
         await button.scrollIntoViewIfNeeded();
         await button.click();
-        this.logInfo(`Button ${buttonText || 'clicked'} in iframe`);
+        this.logInfo(`Button ${buttonText || "clicked"} in iframe`);
         return true;
       } else {
-        this.logInfo('No iframe found');
+        this.logInfo("No iframe found");
         return false;
       }
     } catch (error) {
@@ -182,22 +218,19 @@ export class BasePage {
     }
   }
 
-  /**
-   * Click element using XPath with retry mechanism
-   * @param xpath - The XPath selector
-   * @param retries - Number of retries (default: 3)
-   */
   async clickElementByXPath(xpath: string, retries: number = 3): Promise<void> {
     for (let i = 0; i < retries; i++) {
       try {
         const element = this.page.locator(xpath);
-        await element.waitFor({ state: 'visible', timeout: 10000 });
+        await element.waitFor({ state: "visible", timeout: 10000 });
         await element.click();
         this.logInfo(`Clicked element: ${xpath}`);
         return;
       } catch (error) {
         if (i === retries - 1) {
-          this.logError(`Failed to click element after ${retries} retries: ${xpath}`);
+          this.logError(
+            `Failed to click element after ${retries} retries: ${xpath}`
+          );
           throw error;
         }
         await this.waitForTimeout(1000);
@@ -205,16 +238,11 @@ export class BasePage {
     }
   }
 
-  /**
-   * Get text content from element using XPath
-   * @param xpath - The XPath selector
-   * @returns The text content
-   */
   async getTextByXPath(xpath: string): Promise<string> {
     try {
       const element = this.page.locator(xpath);
-      await element.waitFor({ state: 'visible', timeout: 5000 });
-      const text = await element.textContent() || '';
+      await element.waitFor({ state: "visible", timeout: 5000 });
+      const text = (await element.textContent()) || "";
       this.logInfo(`Got text from ${xpath}: ${text}`);
       return text.trim();
     } catch (error) {
@@ -223,15 +251,10 @@ export class BasePage {
     }
   }
 
-  /**
-   * Fill input field using XPath
-   * @param xpath - The XPath selector
-   * @param value - The value to fill
-   */
   async fillFieldByXPath(xpath: string, value: string): Promise<void> {
     try {
       const element = this.page.locator(xpath);
-      await element.waitFor({ state: 'visible', timeout: 5000 });
+      await element.waitFor({ state: "visible", timeout: 5000 });
       await element.fill(value);
       this.logInfo(`Filled field ${xpath} with value: ${value}`);
     } catch (error) {
@@ -240,10 +263,6 @@ export class BasePage {
     }
   }
 
-  /**
-   * Take a screenshot for debugging with timestamp
-   * @param baseName - The base name for the screenshot file
-   */
   async takeDebugScreenshot(baseName: string): Promise<void> {
     try {
       const screenshotPath = `debug-${baseName}-${Date.now()}.png`;
@@ -254,44 +273,42 @@ export class BasePage {
     }
   }
 
-  /**
-   * Wait for selector to appear and click on it
-   * @param selector - The selector for the element
-   * @param timeout - Timeout in milliseconds
-   */
-  async waitForSelectorAndClick(selector: string, timeout: number = 5000): Promise<void> {
+  async waitForSelectorAndClick(
+    selector: string,
+    timeout: number = 5000
+  ): Promise<void> {
     try {
       await this.page.waitForSelector(selector, { timeout });
       await this.page.click(selector);
-      this.logInfo(`Waited for and clicked on element with selector: ${selector}`);
+      this.logInfo(
+        `Waited for and clicked on element with selector: ${selector}`
+      );
     } catch (error) {
-      this.logError(`Failed to wait for and click selector ${selector}: ${error}`);
+      this.logError(
+        `Failed to wait for and click selector ${selector}: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Check all checkboxes that match a selector
-   * @param selector - The selector for the checkboxes
-   */
   async checkAllMatchingCheckboxes(selector: string): Promise<number> {
     try {
       const checkboxes = await this.page.$$(selector);
       for (const checkbox of checkboxes) {
         await checkbox.check();
       }
-      this.logInfo(`Checked ${checkboxes.length} checkboxes matching selector: ${selector}`);
+      this.logInfo(
+        `Checked ${checkboxes.length} checkboxes matching selector: ${selector}`
+      );
       return checkboxes.length;
     } catch (error) {
-      this.logError(`Failed to check checkboxes with selector ${selector}: ${error}`);
+      this.logError(
+        `Failed to check checkboxes with selector ${selector}: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Press a keyboard key
-   * @param key - The key to press
-   */
   async pressKey(key: string): Promise<void> {
     try {
       await this.page.keyboard.press(key);
@@ -308,37 +325,42 @@ export class BasePage {
    * @param downloadDir - Directory to save download to (optional)
    * @returns The path to the downloaded file
    */
-  async handleFileDownload(clickSelector: string, downloadDir?: string): Promise<string> {
+  async handleFileDownload(
+    clickSelector: string,
+    downloadDir?: string
+  ): Promise<string> {
     try {
       // Set up download directory if provided
       if (downloadDir) {
-        const path = require('path');
-        const fs = require('fs');
-        const downloadsPath = path.isAbsolute(downloadDir) ? downloadDir : path.join(process.cwd(), downloadDir);
+        const path = require("path");
+        const fs = require("fs");
+        const downloadsPath = path.isAbsolute(downloadDir)
+          ? downloadDir
+          : path.join(process.cwd(), downloadDir);
         if (!fs.existsSync(downloadsPath)) {
           fs.mkdirSync(downloadsPath, { recursive: true });
         }
       }
 
       // Set up download handler
-      const downloadPromise = this.page.waitForEvent('download');
-      
+      const downloadPromise = this.page.waitForEvent("download");
+
       // Click to initiate download
       await this.clickElement(clickSelector);
-      this.logInfo('Clicked download button');
-      
+      this.logInfo("Clicked download button");
+
       // Wait for download to start
       const download = await downloadPromise;
       this.logInfo(`Download started: ${download.suggestedFilename()}`);
-      
+
       // Save the file to the specified directory or default downloads
-      const savePath = downloadDir 
-        ? require('path').join(downloadDir, download.suggestedFilename()) 
+      const savePath = downloadDir
+        ? require("path").join(downloadDir, download.suggestedFilename())
         : download.suggestedFilename();
-      
+
       await download.saveAs(savePath);
       this.logInfo(`File downloaded to: ${savePath}`);
-      
+
       return savePath;
     } catch (error) {
       this.logError(`Error during download: ${error}`);
@@ -351,24 +373,29 @@ export class BasePage {
    * @param clickSelector - Selector to click to open file chooser
    * @param filePath - Path to file to upload
    */
-  async handleFileUpload(clickSelector: string, filePath: string): Promise<void> {
+  async handleFileUpload(
+    clickSelector: string,
+    filePath: string
+  ): Promise<void> {
     try {
       // Verify file exists
-      const fs = require('fs');
-      const path = require('path');
-      const absPath = path.isAbsolute(filePath) ? filePath : path.join(process.cwd(), filePath);
-      
+      const fs = require("fs");
+      const path = require("path");
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(process.cwd(), filePath);
+
       if (!fs.existsSync(absPath)) {
         throw new Error(`File not found: ${absPath}`);
       }
-      
+
       // Set up file chooser handler
-      const fileChooserPromise = this.page.waitForEvent('filechooser');
-      
+      const fileChooserPromise = this.page.waitForEvent("filechooser");
+
       // Click to open file chooser
       await this.clickElement(clickSelector);
-      this.logInfo('Opened file chooser');
-      
+      this.logInfo("Opened file chooser");
+
       // Wait for file chooser and set file
       const fileChooser = await fileChooserPromise;
       await fileChooser.setFiles(absPath);
@@ -386,7 +413,7 @@ export class BasePage {
    */
   async fillLocator(locator: any, value: string): Promise<void> {
     try {
-      await locator.waitFor({ state: 'visible', timeout: 5000 });
+      await locator.waitFor({ state: "visible", timeout: 5000 });
       await locator.fill(value);
       this.logInfo(`Filled field with value: ${value}`);
     } catch (error) {
@@ -395,13 +422,9 @@ export class BasePage {
     }
   }
 
-  /**
-   * Click on an element using Playwright Locator
-   * @param locator - The Playwright Locator for the element
-   */
   async clickLocator(locator: any): Promise<void> {
     try {
-      await locator.waitFor({ state: 'visible', timeout: 5000 });
+      await locator.waitFor({ state: "visible", timeout: 5000 });
       await locator.click();
       this.logInfo(`Clicked on element using locator`);
     } catch (error) {
@@ -410,14 +433,9 @@ export class BasePage {
     }
   }
 
-  /**
-   * Type text into a field using Playwright Locator
-   * @param locator - The Playwright Locator for the field
-   * @param text - The text to type
-   */
   async typeText(locator: any, text: string): Promise<void> {
     try {
-      await locator.waitFor({ state: 'visible', timeout: 5000 });
+      await locator.waitFor({ state: "visible", timeout: 5000 });
       await locator.type(text);
       this.logInfo(`Typed text into field: ${text}`);
     } catch (error) {
@@ -433,7 +451,7 @@ export class BasePage {
    */
   async pressKeyInLocator(locator: any, key: string): Promise<void> {
     try {
-      await locator.waitFor({ state: 'visible', timeout: 5000 });
+      await locator.waitFor({ state: "visible", timeout: 5000 });
       await locator.press(key);
       this.logInfo(`Pressed key ${key} in locator`);
     } catch (error) {
@@ -442,101 +460,100 @@ export class BasePage {
     }
   }
 
-  /**
-   * Select dropdown option by value attribute
-   * @param selector - The selector for the dropdown (select element)
-   * @param value - The value attribute of the option to select
-   */
   async selectDropdownByValue(selector: string, value: string): Promise<void> {
     try {
       await this.page.selectOption(selector, { value: value });
-      this.logInfo(`Selected dropdown option with value: ${value} from selector: ${selector}`);
+      this.logInfo(
+        `Selected dropdown option with value: ${value} from selector: ${selector}`
+      );
     } catch (error) {
-      this.logError(`Failed to select dropdown option by value ${value}: ${error}`);
+      this.logError(
+        `Failed to select dropdown option by value ${value}: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Select dropdown option by visible text
-   * @param selector - The selector for the dropdown (select element)
-   * @param text - The visible text of the option to select
-   */
   async selectDropdownByText(selector: string, text: string): Promise<void> {
     try {
       await this.page.selectOption(selector, { label: text });
-      this.logInfo(`Selected dropdown option with text: ${text} from selector: ${selector}`);
+      this.logInfo(
+        `Selected dropdown option with text: ${text} from selector: ${selector}`
+      );
     } catch (error) {
-      this.logError(`Failed to select dropdown option by text ${text}: ${error}`);
+      this.logError(
+        `Failed to select dropdown option by text ${text}: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Select dropdown option by index (0-based)
-   * @param selector - The selector for the dropdown (select element)
-   * @param index - The index of the option to select (0-based)
-   */
   async selectDropdownByIndex(selector: string, index: number): Promise<void> {
     try {
       await this.page.selectOption(selector, { index: index });
-      this.logInfo(`Selected dropdown option at index: ${index} from selector: ${selector}`);
+      this.logInfo(
+        `Selected dropdown option at index: ${index} from selector: ${selector}`
+      );
     } catch (error) {
-      this.logError(`Failed to select dropdown option by index ${index}: ${error}`);
+      this.logError(
+        `Failed to select dropdown option by index ${index}: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Select dropdown option using XPath (for custom dropdowns)
-   * @param dropdownXPath - The XPath for the dropdown trigger
-   * @param optionText - The text of the option to select
-   * @param timeout - Timeout for waiting for options to appear (default: 5000ms)
-   */
-  async selectDropdownByXPath(dropdownXPath: string, optionText: string, timeout: number = 5000): Promise<void> {
+  async selectDropdownByXPath(
+    dropdownXPath: string,
+    optionText: string,
+    timeout: number = 5000
+  ): Promise<void> {
     try {
       // Click the dropdown to open it
       await this.clickElementByXPath(dropdownXPath);
       this.logInfo(`Opened dropdown: ${dropdownXPath}`);
-      
+
       // Wait a moment for dropdown to open
       await this.waitForTimeout(500);
-      
+
       // Find and click the option
       const optionXPath = `//li[contains(text(), "${optionText}")] | //option[contains(text(), "${optionText}")] | //div[contains(text(), "${optionText}")]`;
-      
+
       await this.page.waitForSelector(`xpath=${optionXPath}`, { timeout });
       await this.clickElementByXPath(optionXPath);
-      
+
       this.logInfo(`Selected dropdown option: ${optionText}`);
     } catch (error) {
-      this.logError(`Failed to select dropdown option by XPath. Dropdown: ${dropdownXPath}, Option: ${optionText}, Error: ${error}`);
+      this.logError(
+        `Failed to select dropdown option by XPath. Dropdown: ${dropdownXPath}, Option: ${optionText}, Error: ${error}`
+      );
       throw error;
     }
   }
 
-  /**
-   * Select dropdown option by partial text match
-   * @param selector - The selector for the dropdown
-   * @param partialText - Partial text to match against option text
-   */
-  async selectDropdownOptionByPartialText(selector: string, partialText: string): Promise<void> {
+  async selectDropdownOptionByPartialText(
+    selector: string,
+    partialText: string
+  ): Promise<void> {
     try {
       const options = await this.page.locator(`${selector} option`).all();
-      
+
       for (const option of options) {
-        const optionText = await option.textContent() || '';
+        const optionText = (await option.textContent()) || "";
         if (optionText.toLowerCase().includes(partialText.toLowerCase())) {
-          const value = await option.getAttribute('value') || '';
+          const value = (await option.getAttribute("value")) || "";
           await this.page.selectOption(selector, value);
-          this.logInfo(`Selected dropdown option containing text: ${partialText} (full text: ${optionText})`);
+          this.logInfo(
+            `Selected dropdown option containing text: ${partialText} (full text: ${optionText})`
+          );
           return;
         }
       }
-      
+
       throw new Error(`No option found containing text: ${partialText}`);
     } catch (error) {
-      this.logError(`Failed to select dropdown option by partial text ${partialText}: ${error}`);
+      this.logError(
+        `Failed to select dropdown option by partial text ${partialText}: ${error}`
+      );
       throw error;
     }
   }
@@ -550,15 +567,17 @@ export class BasePage {
     try {
       const options = await this.page.locator(`${selector} option`).all();
       const optionTexts: string[] = [];
-      
+
       for (const option of options) {
-        const text = await option.textContent() || '';
+        const text = (await option.textContent()) || "";
         if (text.trim()) {
           optionTexts.push(text.trim());
         }
       }
-      
-      this.logInfo(`Retrieved ${optionTexts.length} options from dropdown: ${selector}`);
+
+      this.logInfo(
+        `Retrieved ${optionTexts.length} options from dropdown: ${selector}`
+      );
       return optionTexts;
     } catch (error) {
       this.logError(`Failed to get dropdown options: ${error}`);
@@ -566,28 +585,26 @@ export class BasePage {
     }
   }
 
-  /**
-   * Select from searchable dropdown (like Select2, Chosen, etc.)
-   * @param dropdownSelector - The selector for the dropdown trigger
-   * @param searchText - Text to type in the search field
-   * @param optionSelector - Optional custom selector for the option (default: searches by text)
-   */
-  async selectDropdownWithSearch(dropdownSelector: string, searchText: string, optionSelector?: string): Promise<void> {
+  async selectDropdownWithSearch(
+    dropdownSelector: string,
+    searchText: string,
+    optionSelector?: string
+  ): Promise<void> {
     try {
       // Click to open the dropdown
       await this.clickElement(dropdownSelector);
       this.logInfo(`Opened searchable dropdown: ${dropdownSelector}`);
-      
+
       // Wait for dropdown to open
       await this.waitForTimeout(500);
-      
+
       // Type in the search field (usually the dropdown has an input that appears)
       await this.page.keyboard.type(searchText);
       this.logInfo(`Typed search text: ${searchText}`);
-      
+
       // Wait for search results
       await this.waitForTimeout(1000);
-      
+
       // Click the option
       if (optionSelector) {
         await this.clickElement(optionSelector);
@@ -598,14 +615,18 @@ export class BasePage {
           `//div[contains(text(), "${searchText}")]`,
           `//span[contains(text(), "${searchText}")]`,
           `.option:has-text("${searchText}")`,
-          `.select2-result:has-text("${searchText}")`
+          `.select2-result:has-text("${searchText}")`,
         ];
-        
+
         let optionFound = false;
         for (const sel of commonSelectors) {
           try {
-            if (sel.startsWith('//') || sel.startsWith('.') || sel.startsWith('#')) {
-              if (sel.startsWith('//')) {
+            if (
+              sel.startsWith("//") ||
+              sel.startsWith(".") ||
+              sel.startsWith("#")
+            ) {
+              if (sel.startsWith("//")) {
                 await this.clickElementByXPath(sel);
               } else {
                 await this.clickElement(sel);
@@ -617,12 +638,12 @@ export class BasePage {
             // Continue to next selector
           }
         }
-        
+
         if (!optionFound) {
           throw new Error(`Could not find option with text: ${searchText}`);
         }
       }
-      
+
       this.logInfo(`Selected searchable dropdown option: ${searchText}`);
     } catch (error) {
       this.logError(`Failed to select from searchable dropdown: ${error}`);
@@ -636,22 +657,26 @@ export class BasePage {
    * @param optionSelector - Selector pattern for options (use {text} placeholder)
    * @param optionText - Text of the option to select
    */
-  async selectFromCustomDropdown(triggerSelector: string, optionSelector: string, optionText: string): Promise<void> {
+  async selectFromCustomDropdown(
+    triggerSelector: string,
+    optionSelector: string,
+    optionText: string
+  ): Promise<void> {
     try {
       // Click trigger to open dropdown
       await this.clickElement(triggerSelector);
       this.logInfo(`Opened custom dropdown: ${triggerSelector}`);
-      
+
       // Wait for dropdown to open
       await this.waitForTimeout(500);
-      
+
       // Replace placeholder in selector with actual text
-      const finalSelector = optionSelector.replace('{text}', optionText);
-      
+      const finalSelector = optionSelector.replace("{text}", optionText);
+
       // Wait for option to be visible and click it
       await this.page.waitForSelector(finalSelector, { timeout: 5000 });
       await this.clickElement(finalSelector);
-      
+
       this.logInfo(`Selected custom dropdown option: ${optionText}`);
     } catch (error) {
       this.logError(`Failed to select from custom dropdown: ${error}`);
@@ -660,5 +685,14 @@ export class BasePage {
       throw error;
     }
   }
-}
 
+  async clickAppLauncher(timeout = 5_000): Promise<this> {
+    this.logInfo("Clicking the app launcher icon");
+    await this.appLauncher.waitFor({ state: "visible", timeout });
+    await Promise.all([
+      this.page.waitForLoadState("domcontentloaded"),
+      this.appLauncher.click(),
+    ]);
+    return this;
+  }
+}

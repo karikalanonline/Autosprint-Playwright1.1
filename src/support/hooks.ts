@@ -4,6 +4,8 @@ import { PlaywrightHelper } from "./playwright-helper";
 import fs from "fs";
 import path from "path";
 import { setDefaultTimeout } from "@cucumber/cucumber";
+import { loginToSalesforce } from "../flows/auth.flows";
+import { goToIxtWebForm } from "src/flows/ixt.flow";
 setDefaultTimeout(60 * 1000);
 // Create logs directory if it doesn't exist
 BeforeAll(async function () {
@@ -37,6 +39,20 @@ BeforeAll(async function () {
     "utf8"
   );
 });
+
+Before(
+  { tags: "@needslogin", timeout: 60_000 },
+  async function (this: CustomWorld) {
+    await loginToSalesforce(this);
+  }
+);
+
+Before(
+  { tags: "@goToIxtWebForm", timeout: 60_000 },
+  async function (this: CustomWorld) {
+    await goToIxtWebForm(this);
+  }
+);
 
 Before({ timeout: 60000 }, async function (this: CustomWorld, scenario) {
   //console.log(`Running scenario: ${scenario.pickle.name}`);
