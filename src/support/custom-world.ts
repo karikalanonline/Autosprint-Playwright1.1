@@ -1,6 +1,9 @@
 import { setWorldConstructor, World, IWorldOptions } from "@cucumber/cucumber";
 import { Browser, BrowserContext, Page } from "@playwright/test";
 import { PlaywrightHelper } from "./playwright-helper";
+import { MailboxSyncRecordPage } from "@pages/mailbox-sync-record-page";
+import { SalesforceHomePage } from "@pages/salesforce-home-page";
+import { MailboxSyncHomePage } from "@pages/mailbox-sync-home-page";
 
 export interface CucumberWorldConstructorParams extends IWorldOptions {
   parameters: { [key: string]: string };
@@ -16,10 +19,19 @@ let globalPage: Page | undefined;
 const globalPageObjects = new Map<string, unknown>(); // POM cache
 
 export class CustomWorld extends World {
-  // Non-nullable, definite assignment: hooks/setup() must assign these.
+  // existing browser/context/page properties...
   browser!: Browser;
   context!: BrowserContext;
   page!: Page;
+
+  // Add optional page-object holders (values only)
+  proxySfHomePage?: SalesforceHomePage;
+  //openMailboxSyncFromHome?: MailboxSyncHomePage;
+  currentMailboxRecordPage?: MailboxSyncRecordPage;
+  mailboxSyncHomePage?: MailboxSyncHomePage;
+
+  // optional: store primitive shared values
+  currentIxtnumber?: string;
 
   constructor(options: CucumberWorldConstructorParams) {
     super(options);

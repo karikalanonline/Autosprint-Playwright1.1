@@ -4,7 +4,10 @@ import { MailboxSyncRecordPage } from "./mailbox-sync-record-page";
 
 export class MailboxSyncHomePage extends BasePage {
   // Locators
+  //private globalSearchOpenButton: Locator;
+  //private globalSearchInput: Locator;
   private readonly globalSearchButton: Locator;
+  private readonly globalSearchBox: Locator;
   private readonly globalSearchInput: Locator;
   private readonly listSearchInput: Locator;
   private readonly picklistIcon: Locator;
@@ -19,10 +22,17 @@ export class MailboxSyncHomePage extends BasePage {
     this.globalSearchInput = this.page
       .locator("input.slds-input[placeholder='Search...'][type='search']")
       .first();
+    this.globalSearchBox = this.page.getByRole("searchbox").first();
     this.listSearchInput = this.page
       .locator("input.slds-input[placeholder='Search...'][type='search']")
       .first();
 
+    // this.globalSearchOpenButton = this.page
+    //   .getByRole("button", { name: "Search" })
+    //   .nth(0);
+    // this.globalSearchInput = this.page
+    //   .locator('input[type="search"][placeholder^="Search"]')
+    //   .nth(0);
     this.picklistIcon = this.page.locator(
       "button[title='Select a List View: Immigration Mailbox Sync']"
     );
@@ -36,18 +46,67 @@ export class MailboxSyncHomePage extends BasePage {
     );
   }
 
-  /** Open a specific IXT record by its inquiry/request number (e.g., “IXT-12345”). */
+  // async openGlobalSearchAndOpenResult(query: string) {
+  //   await this.globalSearchOpenButton.waitFor({
+  //     state: "visible",
+  //     timeout: 10_000,
+  //   });
+  //   await this.globalSearchOpenButton.waitFor({
+  //     state: "visible",
+  //     timeout: 15_000,
+  //   });
+  //   await this.globalSearchOpenButton.click();
+
+  //   await this.globalSearchInput.waitFor({ state: "visible", timeout: 15_000 });
+
+  //   await this.globalSearchInput.fill(query);
+  //   const resultLink = this.page.getByRole("link", { name: query }).first();
+  //   await resultLink.waitFor({ state: "visible", timeout: 15_000 });
+  //   await Promise.all([
+  //     await this.page.waitForLoadState("domcontentloaded"),
+  //     await resultLink.click(),
+  //   ]);
+
+  //   return new MailboxSyncRecordPage(this.page);
+  // }
+
   async selectIxtRecord(inquiryNumber: string): Promise<MailboxSyncRecordPage> {
     const link = this.page.locator(`a[title='${inquiryNumber}']`).first();
-    await link.waitFor({ state: "visible" });
     await Promise.all([
-      this.page.waitForLoadState("domcontentloaded"),
+      this.page.waitForLoadState("domcontentloaded").catch(() => {}),
       link.click(),
     ]);
     return new MailboxSyncRecordPage(this.page);
   }
 
-  /** Switch list view using the picklist and search. */
+  async openIxtRecordBusiness(
+    recordId: string,
+    timeout = 30_000
+  ): Promise<MailboxSyncRecordPage> {
+    await this.page.pause();
+    await this.globalSearchButton.waitFor({ state: "visible" });
+    await this.globalSearchButton.click();
+    await this.globalSearchInput.waitFor({ state: "visible", timeout: 15_000 });
+    await this.globalSearchInput.fill("");
+    await this.globalSearchInput.fill(recordId);
+    //await this.globalSearchInput.press("Enter");
+
+    const result = this.page
+      .locator(`mark.data-match:has-text("${recordId}")`)
+      .first();
+    await result.waitFor({ state: "visible", timeout });
+
+    await Promise.all([
+      this.page.waitForLoadState("domcontentloaded"),
+      result.click(),
+    ]);
+
+    await this.page
+      .waitForURL(/\/lightning\/r\/.*\/.*\/view/, { timeout: 20000 })
+      .catch(() => {});
+    return new MailboxSyncRecordPage(this.page);
+  }
+
   async goToListView(listViewName: string): Promise<this> {
     await this.picklistIcon.click();
     await this.listSearchCombobox.click();
@@ -65,7 +124,6 @@ export class MailboxSyncHomePage extends BasePage {
     return this;
   }
 
-  /** Convenience: verify list view header text exists (use in steps with expect). */
   async isListViewLoaded(
     listViewName: string,
     timeout = 10_000
@@ -79,38 +137,6 @@ export class MailboxSyncHomePage extends BasePage {
     } catch {
       return false;
     }
-  }
-
-  /**
-   * Global search → open a record by ID (business flow from your Python).
-   * Types with delay, clicks highlighted result, waits for navigation.
-   */
-  async openIxtRecordBusiness(
-    recordId: string,
-    timeout = 30_000
-  ): Promise<MailboxSyncRecordPage> {
-    await this.globalSearchButton.waitFor({ state: "visible" });
-    await this.globalSearchButton.click();
-
-    const box = this.globalSearchInput;
-    await box.waitFor({ state: "visible" });
-    await box.click();
-    await box.fill(""); // clear residue
-    await box.type(recordId, { delay: 60 });
-
-    const result = this.page
-      .locator(`mark.data-match:has-text("${recordId}")`)
-      .first();
-    await result.waitFor({ state: "visible", timeout });
-
-    await Promise.all([
-      this.page.waitForLoadState("domcontentloaded"),
-      result.click(),
-    ]);
-
-    // small settle if Salesforce is chatty; prefer explicit URL/element waits in calling steps
-    await this.page.waitForTimeout(500);
-    return new MailboxSyncRecordPage(this.page);
   }
 
   /**

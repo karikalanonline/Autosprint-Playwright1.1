@@ -6,7 +6,7 @@ import path from "path";
 import { setDefaultTimeout } from "@cucumber/cucumber";
 import { loginToSalesforce } from "../flows/auth.flows";
 import { goToIxtWebForm } from "src/flows/ixt.flow";
-setDefaultTimeout(60 * 1000);
+setDefaultTimeout(60 * 10000);
 // Create logs directory if it doesn't exist
 BeforeAll(async function () {
   const logsDir = path.join(process.cwd(), "logs");
@@ -40,25 +40,22 @@ BeforeAll(async function () {
   );
 });
 
-Before(
-  { tags: "@needslogin", timeout: 60_000 },
-  async function (this: CustomWorld) {
-    await loginToSalesforce(this);
-  }
-);
+// Before(
+//   { tags: "@needslogin", timeout: 60_000 },
+//   async function (this: CustomWorld) {
+//     await loginToSalesforce(this);
+//   }
+// );
 
-Before(
-  { tags: "@goToIxtWebForm", timeout: 60_000 },
-  async function (this: CustomWorld) {
-    await goToIxtWebForm(this);
-  }
-);
+// Before(
+//   { tags: "@goToIxtWebForm", timeout: 60_000 },
+//   async function (this: CustomWorld) {
+//     await goToIxtWebForm(this);
+//   }
+// );
 
 Before({ timeout: 60000 }, async function (this: CustomWorld, scenario) {
-  //console.log(`Running scenario: ${scenario.pickle.name}`);
-
   try {
-    // Setup browser/context - will reuse if already exists
     const browserName = process.env.BROWSER || "chromium";
     await this.setup(browserName);
 

@@ -5,6 +5,7 @@ import fs from "fs";
 export class BasePage {
   protected page: Page;
   private readonly appLauncher: Locator;
+  private readonly globalSearchTextBox: Locator;
 
   /**
    * BasePage Methods Index:
@@ -46,6 +47,7 @@ export class BasePage {
   constructor(page: Page) {
     this.page = page;
     this.appLauncher = this.page.locator("button[title='App Launcher']");
+    this.globalSearchTextBox = this.page.locator("button[aria-label='Search']");
   }
 
   protected async retryAction<T>(
@@ -112,6 +114,31 @@ export class BasePage {
     }
   }
 
+  async clickElement(selector: string): Promise<void> {
+    await this.page.click(selector);
+    this.logInfo(`Clicked on element with selector: ${selector}`);
+  }
+
+  async fillField(selector: string, value: string): Promise<void> {
+    await this.page.fill(selector, value);
+    this.logInfo(`Filled field ${selector} with value: ${value}`);
+  }
+
+  async searchOnGlobalSearch(selector: string, value: string) {
+    await this.page.fill(selector, value);
+    this.logInfo("Entered the ixt ref number in the global search text box");
+  }
+
+  async getTextFromElement(selector: string): Promise<string> {
+    const text = (await this.page.textContent(selector)) || "";
+    return text.trim();
+  }
+
+  async elementExists(selector: string): Promise<boolean> {
+    const element = await this.page.$(selector);
+    return element !== null;
+  }
+
   async waitForElement(
     selector: string,
     timeout: number = 30000
@@ -128,311 +155,6 @@ export class BasePage {
     }
   }
 
-  async clickElement(selector: string): Promise<void> {
-    await this.page.click(selector);
-    this.logInfo(`Clicked on element with selector: ${selector}`);
-  }
-
-  async fillField(selector: string, value: string): Promise<void> {
-    await this.page.fill(selector, value);
-    this.logInfo(`Filled field ${selector} with value: ${value}`);
-  }
-
-  async getTextFromElement(selector: string): Promise<string> {
-    const text = (await this.page.textContent(selector)) || "";
-    return text.trim();
-  }
-
-  async elementExists(selector: string): Promise<boolean> {
-    const element = await this.page.$(selector);
-    return element !== null;
-  }
-
-  async takeScreenshot(name: string): Promise<void> {
-    const screenshotPath = path.join(
-      process.cwd(),
-      "reports",
-      "screenshots",
-      `${name.replace(/[^a-zA-Z0-9]/g, "_")}.png`
-    );
-    await this.page.screenshot({ path: screenshotPath, fullPage: true });
-    this.logInfo(`Screenshot saved to ${screenshotPath}`);
-  }
-
-  protected logInfo(message: string): void {
-    const logMessage = `${new Date().toISOString()} - INFO: ${message}\n`;
-    fs.appendFileSync(
-      path.join(process.cwd(), "logs", "test.log"),
-      logMessage,
-      "utf8"
-    );
-  }
-
-  protected logError(message: string): void {
-    const logMessage = `${new Date().toISOString()} - ERROR: ${message}\n`;
-    fs.appendFileSync(
-      path.join(process.cwd(), "logs", "test.log"),
-      logMessage,
-      "utf8"
-    );
-  }
-
-  async waitForTimeout(milliseconds: number): Promise<void> {
-    await this.page.waitForTimeout(milliseconds);
-    this.logInfo(`Waited for ${milliseconds}ms`);
-  }
-
-  /**
-   * Handle iframe interactions
-   * @param iframeSelector - The selector for the iframe
-   * @param buttonSelector - The selector for the button inside iframe
-   * @param buttonText - Text to identify the button (optional)
-   */
-  async handleIframe(
-    iframeSelector: string,
-    buttonSelector: string,
-    buttonText?: string
-  ): Promise<boolean> {
-    try {
-      this.logInfo(`Looking for iframe with selector: ${iframeSelector}`);
-      const frameElementHandle = await this.page
-        .locator(iframeSelector)
-        .first();
-      const frame = await frameElementHandle.contentFrame();
-
-      if (frame) {
-        this.logInfo("Iframe found, looking for button inside");
-        const button = frame.locator(buttonSelector);
-        await button.waitFor({ state: "visible", timeout: 5000 });
-        await button.scrollIntoViewIfNeeded();
-        await button.click();
-        this.logInfo(`Button ${buttonText || "clicked"} in iframe`);
-        return true;
-      } else {
-        this.logInfo("No iframe found");
-        return false;
-      }
-    } catch (error) {
-      this.logError(`Error handling iframe: ${error}`);
-      return false;
-    }
-  }
-
-  async clickElementByXPath(xpath: string, retries: number = 3): Promise<void> {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const element = this.page.locator(xpath);
-        await element.waitFor({ state: "visible", timeout: 10000 });
-        await element.click();
-        this.logInfo(`Clicked element: ${xpath}`);
-        return;
-      } catch (error) {
-        if (i === retries - 1) {
-          this.logError(
-            `Failed to click element after ${retries} retries: ${xpath}`
-          );
-          throw error;
-        }
-        await this.waitForTimeout(1000);
-      }
-    }
-  }
-
-  async getTextByXPath(xpath: string): Promise<string> {
-    try {
-      const element = this.page.locator(xpath);
-      await element.waitFor({ state: "visible", timeout: 5000 });
-      const text = (await element.textContent()) || "";
-      this.logInfo(`Got text from ${xpath}: ${text}`);
-      return text.trim();
-    } catch (error) {
-      this.logError(`Failed to get text from ${xpath}: ${error}`);
-      throw error;
-    }
-  }
-
-  async fillFieldByXPath(xpath: string, value: string): Promise<void> {
-    try {
-      const element = this.page.locator(xpath);
-      await element.waitFor({ state: "visible", timeout: 5000 });
-      await element.fill(value);
-      this.logInfo(`Filled field ${xpath} with value: ${value}`);
-    } catch (error) {
-      this.logError(`Failed to fill field ${xpath}: ${error}`);
-      throw error;
-    }
-  }
-
-  async takeDebugScreenshot(baseName: string): Promise<void> {
-    try {
-      const screenshotPath = `debug-${baseName}-${Date.now()}.png`;
-      await this.page.screenshot({ path: screenshotPath });
-      this.logInfo(`Debug screenshot saved to ${screenshotPath}`);
-    } catch (error) {
-      this.logError(`Failed to take debug screenshot: ${error}`);
-    }
-  }
-
-  async waitForSelectorAndClick(
-    selector: string,
-    timeout: number = 5000
-  ): Promise<void> {
-    try {
-      await this.page.waitForSelector(selector, { timeout });
-      await this.page.click(selector);
-      this.logInfo(
-        `Waited for and clicked on element with selector: ${selector}`
-      );
-    } catch (error) {
-      this.logError(
-        `Failed to wait for and click selector ${selector}: ${error}`
-      );
-      throw error;
-    }
-  }
-
-  async checkAllMatchingCheckboxes(selector: string): Promise<number> {
-    try {
-      const checkboxes = await this.page.$$(selector);
-      for (const checkbox of checkboxes) {
-        await checkbox.check();
-      }
-      this.logInfo(
-        `Checked ${checkboxes.length} checkboxes matching selector: ${selector}`
-      );
-      return checkboxes.length;
-    } catch (error) {
-      this.logError(
-        `Failed to check checkboxes with selector ${selector}: ${error}`
-      );
-      throw error;
-    }
-  }
-
-  async pressKey(key: string): Promise<void> {
-    try {
-      await this.page.keyboard.press(key);
-      this.logInfo(`Pressed key: ${key}`);
-    } catch (error) {
-      this.logError(`Failed to press key ${key}: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Handle file download
-   * @param clickSelector - Selector to click to start download
-   * @param downloadDir - Directory to save download to (optional)
-   * @returns The path to the downloaded file
-   */
-  async handleFileDownload(
-    clickSelector: string,
-    downloadDir?: string
-  ): Promise<string> {
-    try {
-      // Set up download directory if provided
-      if (downloadDir) {
-        const path = require("path");
-        const fs = require("fs");
-        const downloadsPath = path.isAbsolute(downloadDir)
-          ? downloadDir
-          : path.join(process.cwd(), downloadDir);
-        if (!fs.existsSync(downloadsPath)) {
-          fs.mkdirSync(downloadsPath, { recursive: true });
-        }
-      }
-
-      // Set up download handler
-      const downloadPromise = this.page.waitForEvent("download");
-
-      // Click to initiate download
-      await this.clickElement(clickSelector);
-      this.logInfo("Clicked download button");
-
-      // Wait for download to start
-      const download = await downloadPromise;
-      this.logInfo(`Download started: ${download.suggestedFilename()}`);
-
-      // Save the file to the specified directory or default downloads
-      const savePath = downloadDir
-        ? require("path").join(downloadDir, download.suggestedFilename())
-        : download.suggestedFilename();
-
-      await download.saveAs(savePath);
-      this.logInfo(`File downloaded to: ${savePath}`);
-
-      return savePath;
-    } catch (error) {
-      this.logError(`Error during download: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Handle file upload using file chooser
-   * @param clickSelector - Selector to click to open file chooser
-   * @param filePath - Path to file to upload
-   */
-  async handleFileUpload(
-    clickSelector: string,
-    filePath: string
-  ): Promise<void> {
-    try {
-      // Verify file exists
-      const fs = require("fs");
-      const path = require("path");
-      const absPath = path.isAbsolute(filePath)
-        ? filePath
-        : path.join(process.cwd(), filePath);
-
-      if (!fs.existsSync(absPath)) {
-        throw new Error(`File not found: ${absPath}`);
-      }
-
-      // Set up file chooser handler
-      const fileChooserPromise = this.page.waitForEvent("filechooser");
-
-      // Click to open file chooser
-      await this.clickElement(clickSelector);
-      this.logInfo("Opened file chooser");
-
-      // Wait for file chooser and set file
-      const fileChooser = await fileChooserPromise;
-      await fileChooser.setFiles(absPath);
-      this.logInfo(`Selected file for upload: ${absPath}`);
-    } catch (error) {
-      this.logError(`Failed to upload file: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Fill a form field using Playwright Locator
-   * @param locator - The Playwright Locator for the form field
-   * @param value - The value to fill in
-   */
-  async fillLocator(locator: any, value: string): Promise<void> {
-    try {
-      await locator.waitFor({ state: "visible", timeout: 5000 });
-      await locator.fill(value);
-      this.logInfo(`Filled field with value: ${value}`);
-    } catch (error) {
-      this.logError(`Failed to fill field: ${error}`);
-      throw error;
-    }
-  }
-
-  async clickLocator(locator: any): Promise<void> {
-    try {
-      await locator.waitFor({ state: "visible", timeout: 5000 });
-      await locator.click();
-      this.logInfo(`Clicked on element using locator`);
-    } catch (error) {
-      this.logError(`Failed to click element: ${error}`);
-      throw error;
-    }
-  }
-
   async typeText(locator: any, text: string): Promise<void> {
     try {
       await locator.waitFor({ state: "visible", timeout: 5000 });
@@ -440,36 +162,6 @@ export class BasePage {
       this.logInfo(`Typed text into field: ${text}`);
     } catch (error) {
       this.logError(`Failed to type text: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Press a key in a specific locator
-   * @param locator - The Playwright Locator for the element
-   * @param key - The key to press
-   */
-  async pressKeyInLocator(locator: any, key: string): Promise<void> {
-    try {
-      await locator.waitFor({ state: "visible", timeout: 5000 });
-      await locator.press(key);
-      this.logInfo(`Pressed key ${key} in locator`);
-    } catch (error) {
-      this.logError(`Failed to press key ${key}: ${error}`);
-      throw error;
-    }
-  }
-
-  async selectDropdownByValue(selector: string, value: string): Promise<void> {
-    try {
-      await this.page.selectOption(selector, { value: value });
-      this.logInfo(
-        `Selected dropdown option with value: ${value} from selector: ${selector}`
-      );
-    } catch (error) {
-      this.logError(
-        `Failed to select dropdown option by value ${value}: ${error}`
-      );
       throw error;
     }
   }
@@ -694,5 +386,320 @@ export class BasePage {
       this.appLauncher.click(),
     ]);
     return this;
+  }
+
+  /**
+   * Handle file upload using file chooser
+   * @param clickSelector - Selector to click to open file chooser
+   * @param filePath - Path to file to upload
+   */
+  async handleFileUpload(
+    clickSelector: string,
+    filePath: string
+  ): Promise<void> {
+    try {
+      // Verify file exists
+      const fs = require("fs");
+      const path = require("path");
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(process.cwd(), filePath);
+
+      if (!fs.existsSync(absPath)) {
+        throw new Error(`File not found: ${absPath}`);
+      }
+
+      // Set up file chooser handler
+      const fileChooserPromise = this.page.waitForEvent("filechooser");
+
+      // Click to open file chooser
+      await this.clickElement(clickSelector);
+      this.logInfo("Opened file chooser");
+
+      // Wait for file chooser and set file
+      const fileChooser = await fileChooserPromise;
+      await fileChooser.setFiles(absPath);
+      this.logInfo(`Selected file for upload: ${absPath}`);
+    } catch (error) {
+      this.logError(`Failed to upload file: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Press a key in a specific locator
+   * @param locator - The Playwright Locator for the element
+   * @param key - The key to press
+   */
+  async pressKeyInLocator(locator: any, key: string): Promise<void> {
+    try {
+      await locator.waitFor({ state: "visible", timeout: 5000 });
+      await locator.press(key);
+      this.logInfo(`Pressed key ${key} in locator`);
+    } catch (error) {
+      this.logError(`Failed to press key ${key}: ${error}`);
+      throw error;
+    }
+  }
+
+  async selectDropdownByValue(selector: string, value: string): Promise<void> {
+    try {
+      await this.page.selectOption(selector, { value: value });
+      this.logInfo(
+        `Selected dropdown option with value: ${value} from selector: ${selector}`
+      );
+    } catch (error) {
+      this.logError(
+        `Failed to select dropdown option by value ${value}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async takeScreenshot(name: string): Promise<void> {
+    const screenshotPath = path.join(
+      process.cwd(),
+      "reports",
+      "screenshots",
+      `${name.replace(/[^a-zA-Z0-9]/g, "_")}.png`
+    );
+    await this.page.screenshot({ path: screenshotPath, fullPage: true });
+    this.logInfo(`Screenshot saved to ${screenshotPath}`);
+  }
+
+  protected logInfo(message: string): void {
+    const logMessage = `${new Date().toISOString()} - INFO: ${message}\n`;
+    fs.appendFileSync(
+      path.join(process.cwd(), "logs", "test.log"),
+      logMessage,
+      "utf8"
+    );
+  }
+
+  protected logError(message: string): void {
+    const logMessage = `${new Date().toISOString()} - ERROR: ${message}\n`;
+    fs.appendFileSync(
+      path.join(process.cwd(), "logs", "test.log"),
+      logMessage,
+      "utf8"
+    );
+  }
+
+  async waitForTimeout(milliseconds: number): Promise<void> {
+    await this.page.waitForTimeout(milliseconds);
+    this.logInfo(`Waited for ${milliseconds}ms`);
+  }
+
+  /**
+   * Handle iframe interactions
+   * @param iframeSelector - The selector for the iframe
+   * @param buttonSelector - The selector for the button inside iframe
+   * @param buttonText - Text to identify the button (optional)
+   */
+  async handleIframe(
+    iframeSelector: string,
+    buttonSelector: string,
+    buttonText?: string
+  ): Promise<boolean> {
+    try {
+      this.logInfo(`Looking for iframe with selector: ${iframeSelector}`);
+      const frameElementHandle = await this.page
+        .locator(iframeSelector)
+        .first();
+      const frame = await frameElementHandle.contentFrame();
+
+      if (frame) {
+        this.logInfo("Iframe found, looking for button inside");
+        const button = frame.locator(buttonSelector);
+        await button.waitFor({ state: "visible", timeout: 5000 });
+        await button.scrollIntoViewIfNeeded();
+        await button.click();
+        this.logInfo(`Button ${buttonText || "clicked"} in iframe`);
+        return true;
+      } else {
+        this.logInfo("No iframe found");
+        return false;
+      }
+    } catch (error) {
+      this.logError(`Error handling iframe: ${error}`);
+      return false;
+    }
+  }
+
+  async clickElementByXPath(xpath: string, retries: number = 3): Promise<void> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const element = this.page.locator(xpath);
+        await element.waitFor({ state: "visible", timeout: 10000 });
+        await element.click();
+        this.logInfo(`Clicked element: ${xpath}`);
+        return;
+      } catch (error) {
+        if (i === retries - 1) {
+          this.logError(
+            `Failed to click element after ${retries} retries: ${xpath}`
+          );
+          throw error;
+        }
+        await this.waitForTimeout(1000);
+      }
+    }
+  }
+
+  async getTextByXPath(xpath: string): Promise<string> {
+    try {
+      const element = this.page.locator(xpath);
+      await element.waitFor({ state: "visible", timeout: 5000 });
+      const text = (await element.textContent()) || "";
+      this.logInfo(`Got text from ${xpath}: ${text}`);
+      return text.trim();
+    } catch (error) {
+      this.logError(`Failed to get text from ${xpath}: ${error}`);
+      throw error;
+    }
+  }
+
+  async fillFieldByXPath(xpath: string, value: string): Promise<void> {
+    try {
+      const element = this.page.locator(xpath);
+      await element.waitFor({ state: "visible", timeout: 5000 });
+      await element.fill(value);
+      this.logInfo(`Filled field ${xpath} with value: ${value}`);
+    } catch (error) {
+      this.logError(`Failed to fill field ${xpath}: ${error}`);
+      throw error;
+    }
+  }
+
+  async takeDebugScreenshot(baseName: string): Promise<void> {
+    try {
+      const screenshotPath = `debug-${baseName}-${Date.now()}.png`;
+      await this.page.screenshot({ path: screenshotPath });
+      this.logInfo(`Debug screenshot saved to ${screenshotPath}`);
+    } catch (error) {
+      this.logError(`Failed to take debug screenshot: ${error}`);
+    }
+  }
+
+  async waitForSelectorAndClick(
+    selector: string,
+    timeout: number = 5000
+  ): Promise<void> {
+    try {
+      await this.page.waitForSelector(selector, { timeout });
+      await this.page.click(selector);
+      this.logInfo(
+        `Waited for and clicked on element with selector: ${selector}`
+      );
+    } catch (error) {
+      this.logError(
+        `Failed to wait for and click selector ${selector}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async checkAllMatchingCheckboxes(selector: string): Promise<number> {
+    try {
+      const checkboxes = await this.page.$$(selector);
+      for (const checkbox of checkboxes) {
+        await checkbox.check();
+      }
+      this.logInfo(
+        `Checked ${checkboxes.length} checkboxes matching selector: ${selector}`
+      );
+      return checkboxes.length;
+    } catch (error) {
+      this.logError(
+        `Failed to check checkboxes with selector ${selector}: ${error}`
+      );
+      throw error;
+    }
+  }
+
+  async pressKey(key: string): Promise<void> {
+    try {
+      await this.page.keyboard.press(key);
+      this.logInfo(`Pressed key: ${key}`);
+    } catch (error) {
+      this.logError(`Failed to press key ${key}: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle file download
+   * @param clickSelector - Selector to click to start download
+   * @param downloadDir - Directory to save download to (optional)
+   * @returns The path to the downloaded file
+   */
+  async handleFileDownload(
+    clickSelector: string,
+    downloadDir?: string
+  ): Promise<string> {
+    try {
+      // Set up download directory if provided
+      if (downloadDir) {
+        const path = require("path");
+        const fs = require("fs");
+        const downloadsPath = path.isAbsolute(downloadDir)
+          ? downloadDir
+          : path.join(process.cwd(), downloadDir);
+        if (!fs.existsSync(downloadsPath)) {
+          fs.mkdirSync(downloadsPath, { recursive: true });
+        }
+      }
+
+      // Set up download handler
+      const downloadPromise = this.page.waitForEvent("download");
+
+      // Click to initiate download
+      await this.clickElement(clickSelector);
+      this.logInfo("Clicked download button");
+
+      // Wait for download to start
+      const download = await downloadPromise;
+      this.logInfo(`Download started: ${download.suggestedFilename()}`);
+
+      // Save the file to the specified directory or default downloads
+      const savePath = downloadDir
+        ? require("path").join(downloadDir, download.suggestedFilename())
+        : download.suggestedFilename();
+
+      await download.saveAs(savePath);
+      this.logInfo(`File downloaded to: ${savePath}`);
+
+      return savePath;
+    } catch (error) {
+      this.logError(`Error during download: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Fill a form field using Playwright Locator
+   * @param locator - The Playwright Locator for the form field
+   * @param value - The value to fill in
+   */
+  async fillLocator(locator: any, value: string): Promise<void> {
+    try {
+      await locator.waitFor({ state: "visible", timeout: 5000 });
+      await locator.fill(value);
+      this.logInfo(`Filled field with value: ${value}`);
+    } catch (error) {
+      this.logError(`Failed to fill field: ${error}`);
+      throw error;
+    }
+  }
+
+  async clickLocator(locator: any): Promise<void> {
+    try {
+      await locator.waitFor({ state: "visible", timeout: 5000 });
+      await locator.click();
+      this.logInfo(`Clicked on element using locator`);
+    } catch (error) {
+      this.logError(`Failed to click element: ${error}`);
+      throw error;
+    }
   }
 }

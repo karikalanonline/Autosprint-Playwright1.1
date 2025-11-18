@@ -4,6 +4,7 @@ import { ImmigrationHomePage } from "./immigration-home-page";
 import { SalesforceAdminPage } from "./salesforce-admin-page";
 import { MailboxSyncHomePage } from "./mailbox-sync-home-page";
 import { IxtMailboxApp } from "./ixt-mailbox-home-page";
+import { IxtWebFormHomePage } from "./ixt-webform-home-page";
 
 /**
  * Salesforce Home / Lightning landing page.
@@ -35,16 +36,19 @@ export class SalesforceHomePage extends BasePage {
     this.accountTab = this.page.locator(
       "a[href='/lightning/o/Account/home'] span.slds-truncate:has-text('Accounts')"
     );
-    this.switchToLightningLink = this.page
-      .locator("div.navLinks div.linkElements a.switch-to-lightning")
-      .first();
+
     this.immigration = this.page.locator("a[data-label='Immigration']");
     this.ixtMailboxApp = this.page.locator(
       "p.slds-truncate:has-text('IXT Mailbox App')"
     );
     this.gearIcon = this.page.locator("div.setupGear");
+    this.switchToLightningLink = this.page
+      .locator("div.navLinks div.linkElements a.switch-to-lightning")
+      .first();
     this.setupOption = this.page.locator("#related_setup_app_home");
-    this.mailboxSyncTab = this.page.locator("#IMG_Mailbox_Sync__c");
+    this.mailboxSyncTab = this.page.locator(
+      "a[title='Immigration Mailbox Sync']"
+    );
     this.appSearchBox = this.page.getByLabel("Search apps and items...");
     this.ixtWebForm = this.page.locator(
       "p.slds-truncate:has-text('IXT Mailbox WebForm')"
@@ -56,24 +60,6 @@ export class SalesforceHomePage extends BasePage {
     await this.spinner
       .waitFor({ state: "detached", timeout })
       .catch(() => void 0);
-  }
-
-  async switchToLightning(): Promise<this> {
-    try {
-      await this.switchToLightningLink.waitFor({
-        state: "visible",
-        timeout: 5_000,
-      });
-      await Promise.all([
-        this.page.waitForLoadState("domcontentloaded"),
-        this.switchToLightningLink.click(),
-      ]);
-      await this.waitForSpinnerToDisappear();
-      this.logInfo?.("Switched to Lightning");
-    } catch {
-      this.logInfo?.("Already in Lightning (no switch link visible)");
-    }
-    return this;
   }
 
   async isHomeTabVisible(): Promise<boolean> {
@@ -106,17 +92,18 @@ export class SalesforceHomePage extends BasePage {
     return new IxtMailboxApp(this.page);
   }
 
-  async searchAndSelectIxtWebForm(): Promise<IxtMailboxApp> {
+  async searchAndSelectIxtWebForm(): Promise<IxtWebFormHomePage> {
     await this.appSearchBox.type("IXT Mailbox Webform");
     await this.ixtWebForm.waitFor({ state: "visible" });
 
     await Promise.all([
-      this.page.waitForLoadState("networkidle"),
+      //this.page.waitForLoadState("domcontentloaded"),
+      this.page.waitForTimeout(5000),
       this.ixtWebForm.click(),
     ]);
 
-    await this.waitForSpinnerToDisappear();
-    return new IxtMailboxApp(this.page);
+    //await this.waitForSpinnerToDisappear();
+    return new IxtWebFormHomePage(this.page);
   }
 
   async clickImmigration(): Promise<ImmigrationHomePage> {
@@ -124,6 +111,24 @@ export class SalesforceHomePage extends BasePage {
     await this.page.waitForLoadState("domcontentloaded");
     await this.waitForSpinnerToDisappear();
     return new ImmigrationHomePage(this.page);
+  }
+
+  async switchToLightning(): Promise<this> {
+    try {
+      await this.switchToLightningLink.waitFor({
+        state: "visible",
+        timeout: 10_000,
+      });
+      await Promise.all([
+        //this.page.waitForLoadState("domcontentloaded"),
+        this.switchToLightningLink.click(),
+      ]);
+      await this.page.waitForLoadState("domcontentloaded");
+      this.logInfo?.("Switched to Lightning");
+    } catch {
+      this.logInfo?.("Already in Lightning (no switch link visible)");
+    }
+    return this;
   }
 
   async goToAdminPage(): Promise<SalesforceAdminPage> {
@@ -138,15 +143,12 @@ export class SalesforceHomePage extends BasePage {
     return new SalesforceAdminPage(setupPage);
   }
 
-  /**
-   * Search and open "Immigration Mailbox Sync" tab, then return its page object.
-   */
   async clickMailboxSyncTab(): Promise<MailboxSyncHomePage> {
-    await this.appSearchBox.fill("Immigration Mailbox Sync");
     await this.mailboxSyncTab.waitFor({ state: "visible" });
+    //await this.mailboxSyncTab.click();
 
     await Promise.all([
-      this.page.waitForLoadState("networkidle"),
+      this.page.waitForLoadState("domcontentloaded"),
       this.mailboxSyncTab.click(),
     ]);
 

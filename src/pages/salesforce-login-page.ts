@@ -40,6 +40,7 @@ export class SalesforceLoginPage extends BasePage {
     try {
       await this.page.click(this.loginButtonSelector);
       this.logInfo("Clicked login button");
+      //await this.page.pause();
     } catch (error) {
       this.logError(`Failed to click login button: ${error}`);
       throw error;

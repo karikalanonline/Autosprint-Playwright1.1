@@ -30,7 +30,7 @@ When(
 );
 
 When(
-  "I click the {string} button",
+  "I click the {string} button on the login page",
   async function (this: CustomWorld, buttonName: string) {
     const loginPage = this.getPageObject(SalesforceLoginPage);
     await loginPage.clickLoginButton();
@@ -41,7 +41,6 @@ Then(
   "I should be successfully logged into the Salesforce Sandbox environment",
   async function (this: CustomWorld) {
     // honor your pattern; simple stabilization wait if needed
-    await this.page.pause();
     await this.page.waitForURL(/\/lightning\/.*/i, { timeout: 30000 });
   }
 );

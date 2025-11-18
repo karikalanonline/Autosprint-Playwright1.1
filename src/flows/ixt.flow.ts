@@ -7,6 +7,5 @@ export async function goToIxtWebForm(world: CustomWorld): Promise<void> {
   const { page } = world;
   const homePage = world.getPageObject(SalesforceHomePage);
   await homePage.clickAppLauncher();
-  await homePage.clickMailboxSyncTab();
-  const ixtMailboxApp = await homePage.searchAndSelectIxtWebForm();
+  await homePage.searchAndSelectIxtWebForm();
 }
